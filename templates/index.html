@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Phone Unscrambler</title>
+  <style>
+    body{font:16px/1.4 sans-serif;margin:2rem;}
+    input{padding:.4rem;font-size:1rem;width:10rem;}
+    button{padding:.45rem;font-size:1rem;}
+    pre{white-space:pre-wrap;background:#f7f7f7;padding:1rem;margin-top:1rem;}
+  </style>
+</head>
+<body>
+  <h2>Unscramble (3+ letters, exact rack)</h2>
+  <form id="f">
+    <input name="rack" maxlength="12" placeholder="e.g. ypnatr" required>
+    <button>Go</button>
+  </form>
+  <pre id="out"></pre>
+
+  <script>
+    f.onsubmit = async e => {
+      e.preventDefault();
+      out.textContent = "Loading…";
+      const rack = new FormData(f).get("rack");
+      const res  = await fetch(`/api?rack=${encodeURIComponent(rack)}`);
+      out.textContent = await res.text();
+    };
+  </script>
+</body>
+</html>
