@@ -1,31 +1,59 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>Phone Unscrambler</title>
-  <style>
-    body{font:16px/1.4 sans-serif;margin:2rem;}
-    input{padding:.4rem;font-size:1rem;width:10rem;}
-    button{padding:.45rem;font-size:1rem;}
-    pre{white-space:pre-wrap;background:#f7f7f7;padding:1rem;margin-top:1rem;}
-  </style>
-</head>
-<body>
-  <h2>Unscramble (3+ letters, exact rack)</h2>
-  <form id="f">
-    <input name="rack" maxlength="12" placeholder="e.g. ypnatr" required>
-    <button>Go</button>
-  </form>
-  <pre id="out"></pre>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">   <!-- key for mobile -->
+<title>Unscrambler</title>
 
-  <script>
-    f.onsubmit = async e => {
-      e.preventDefault();
-      out.textContent = "Loading…";
-      const rack = new FormData(f).get("rack");
-      const res  = await fetch(`/api?rack=${encodeURIComponent(rack)}`);
-      out.textContent = await res.text();
-    };
-  </script>
+<style>
+/* ----- simple, phone-first look ----- */
+body      {font:   18px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+           margin: 0; padding:1rem; background:#fafafa;}
+#wrap     {max-width:520px; margin:auto;}       /* keeps it from stretching edge-to-edge */
+form      {display:flex; gap:.5rem; margin-bottom:.75rem;}
+input[type=text]{flex:1 1 auto; padding:.5rem; font-size:1rem;}
+button    {padding:.55rem .9rem; font-size:1rem; cursor:pointer;}
+pre       {white-space:pre-wrap; background:#fff; border:1px solid #ddd; padding:1rem;
+           overflow:auto; min-height:150px;}
+</style>
+</head>
+
+<body>
+<div id="wrap">
+  <h3>Unscramble (3+ letters &nbsp;|&nbsp; exact rack)</h3>
+
+  <form id="f">
+    <input type="text" name="rack" maxlength="12" placeholder="e.g. ypnatr" required>
+    <button type="submit">Go</button>
+    <button type="button" id="clr">Clear</button>        <!-- NEW -->
+  </form>
+
+  <pre id="out"></pre>
+</div>
+
+<script>
+const form = document.getElementById('f'),
+      out  = document.getElementById('out'),
+      clr  = document.getElementById('clr');
+
+form.onsubmit = async e => {
+  e.preventDefault();
+  const rack = new FormData(form).get('rack').trim();
+  if(!rack) return;
+  out.textContent = 'Loading…';
+  try {
+    const r = await fetch('/api?rack='+encodeURIComponent(rack));
+    out.textContent = await r.text();
+  } catch(err){
+    out.textContent = '⚠️  Network error';
+  }
+};
+
+clr.onclick = () => {                      // NEW clear logic
+  form.reset();                            // clears input
+  out.textContent = '';                    // clears results
+  form.elements.rack.focus();
+};
+</script>
 </body>
 </html>
