@@ -20,7 +20,7 @@ def exact_anagrams(rack: str) -> list[str]:
 def format_groups(words, cols=5):
     groups = defaultdict(list)
     for w in words:
-        groups[w[0]].append(w)
+        groups[w[0]].append(w.upper())
     lines = []
     for idx, letter in enumerate(sorted(groups), 1):
         rows = [groups[letter][i:i+cols] for i in range(0, len(groups[letter]), cols)]
