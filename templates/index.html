@@ -6,20 +6,30 @@
 <title>Unscrambler</title>
 
 <style>
-/* ---------- layout ---------- */
-body{font:18px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
-     margin:0;padding:1rem;background:#fafafa;}
+/* ─── Layout & basics ───────────────────────────── */
+body{
+  font:18px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  margin:0;padding:1rem;background:#fafafa;
+}
 #wrap{max-width:520px;margin:auto;}
-form{display:flex;gap:.6rem;margin-bottom:.9rem;}
-input[type=text]{flex:1 1 auto;padding:.55rem;font-size:1rem;}
-button{padding:.57rem .95rem;font-size:1rem;cursor:pointer;}
-/* ---------- result box ---------- */
+
+form{display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:.9rem;}
+input[type=text]{padding:.55rem;font-size:1rem;}
+
+/* rack input grows, manual stays ~8 rem */
+input[name=rack]{flex:1 1 auto;}
+#manual         {flex:0 0 8rem;}
+
+button{padding:.57rem .9rem;font-size:1rem;cursor:pointer;}
+
+/* ─── Result box ─────────────────────────────────── */
 .box{
   background:#fff;border:1px solid #ddd;padding:1rem;min-height:160px;
   font-family:SFMono-Regular,Consolas,monospace;font-size:16px;
-  white-space:pre-wrap;overflow-x:auto;           /* wraps on small screens */
+  white-space:pre-wrap;overflow-x:auto;       /* wraps on small screens */
 }
-/* ---------- clickable words ---------- */
+
+/* ─── Clickable words ───────────────────────────── */
 .word{cursor:pointer;margin-right:.35rem;}
 .word.blacklisted{text-decoration:line-through;opacity:.45;}
 </style>
@@ -27,10 +37,17 @@ button{padding:.57rem .95rem;font-size:1rem;cursor:pointer;}
 
 <body>
 <div id="wrap">
-  <h3>Unscramble&nbsp;–&nbsp;tap a word to hide/show</h3>
+  <h3>Unscramble – tap a word to hide/show, or use the box</h3>
 
   <form id="f">
+    <!-- main rack input -->
     <input type="text" name="rack" maxlength="12" placeholder="letters (e.g. ypnatr)" required>
+
+    <!-- manual blacklist toggle -->
+    <input type="text" id="manual" placeholder="word to hide/show">
+    <button type="button" id="add">⇅</button>
+
+    <!-- actions -->
     <button>Go</button>
     <button type="button" id="clr">Clear</button>
   </form>
@@ -43,10 +60,10 @@ const form = document.getElementById('f'),
       out  = document.getElementById('out'),
       clr  = document.getElementById('clr');
 
-/* persistent blacklist (per browser) */
+/* persistent blacklist per-browser */
 const blacklist = new Set(JSON.parse(localStorage.getItem('bl') || '[]'));
 
-/* attach click handlers to every .word span */
+/* hook click-toggle onto every .word span we render */
 function attachClicks(){
   document.querySelectorAll('#out .word').forEach(span=>{
     const w = span.dataset.w;
@@ -65,13 +82,13 @@ function attachClicks(){
   });
 }
 
-/* handle form submit */
+/* submit handler */
 form.onsubmit = async e => {
   e.preventDefault();
   const rack = new FormData(form).get('rack').trim();
   if(!rack) return;
-  out.textContent = 'Loading…';
 
+  out.textContent = 'Loading…';
   const url = `/api?rack=${encodeURIComponent(rack)}&blacklist=${[...blacklist].join(',')}`;
   try{
     const html = await (await fetch(url)).text();
@@ -87,6 +104,25 @@ clr.onclick = () => {
   form.reset();
   out.textContent = '';
   form.elements.rack.focus();
+};
+
+/* ───────── manual add/remove widget ───────── */
+document.getElementById('add').onclick = () => {
+  const inp = document.getElementById('manual');
+  const w   = inp.value.trim().toUpperCase();
+  if(!w) return;
+
+  if(blacklist.has(w)){
+    blacklist.delete(w);
+  }else{
+    blacklist.add(w);
+  }
+  localStorage.setItem('bl', JSON.stringify([...blacklist]));
+  inp.value = '';
+
+  /* instantly update strike-through if word is visible */
+  document.querySelectorAll(`#out .word[data-w="${w}"]`)
+          .forEach(span => span.classList.toggle('blacklisted'));
 };
 </script>
 </body>
