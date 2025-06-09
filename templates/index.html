@@ -2,42 +2,40 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">   <!-- key for mobile -->
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Unscrambler</title>
 
 <style>
-/* ----- simple, phone-first look ----- */
-body      {font:   18px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-           margin: 0; padding:1rem; background:#fafafa;}
-#wrap     {max-width:520px; margin:auto;}       /* keeps it from stretching edge-to-edge */
-form      {display:flex; gap:.5rem; margin-bottom:.75rem;}
-input[type=text]{flex:1 1 auto; padding:.5rem; font-size:1rem;}
-button    {padding:.55rem .9rem; font-size:1rem; cursor:pointer;}
-pre{
-  white-space:pre;          /* no auto-wrap - keeps one row per chunk   */
-  overflow-x:auto;          /* adds a horizontal scroll bar if too long */
-  background:#fff;
-  border:1px solid #ddd;
-  padding:1rem;
-  min-height:150px;
-  font-family:SFMono-Regular,Consolas,monospace;
-  font-size:16px;
+/* ---------- layout ---------- */
+body{font:18px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+     margin:0;padding:1rem;background:#fafafa;}
+#wrap{max-width:520px;margin:auto;}
+form{display:flex;gap:.6rem;margin-bottom:.9rem;}
+input[type=text]{flex:1 1 auto;padding:.55rem;font-size:1rem;}
+button{padding:.57rem .95rem;font-size:1rem;cursor:pointer;}
+/* ---------- result box ---------- */
+.box{
+  background:#fff;border:1px solid #ddd;padding:1rem;min-height:160px;
+  font-family:SFMono-Regular,Consolas,monospace;font-size:16px;
+  white-space:pre-wrap;overflow-x:auto;           /* wraps on small screens */
 }
-
+/* ---------- clickable words ---------- */
+.word{cursor:pointer;margin-right:.35rem;}
+.word.blacklisted{text-decoration:line-through;opacity:.45;}
 </style>
 </head>
 
 <body>
 <div id="wrap">
-  <h3>Unscramble (3+ letters &nbsp;|&nbsp; exact rack)</h3>
+  <h3>Unscramble&nbsp;–&nbsp;tap a word to hide/show</h3>
 
   <form id="f">
-    <input type="text" name="rack" maxlength="12" placeholder="e.g. ypnatr" required>
-    <button type="submit">Go</button>
-    <button type="button" id="clr">Clear</button>        <!-- NEW -->
+    <input type="text" name="rack" maxlength="12" placeholder="letters (e.g. ypnatr)" required>
+    <button>Go</button>
+    <button type="button" id="clr">Clear</button>
   </form>
 
-  <pre id="out"></pre>
+  <div id="out" class="box"></div>
 </div>
 
 <script>
@@ -45,22 +43,49 @@ const form = document.getElementById('f'),
       out  = document.getElementById('out'),
       clr  = document.getElementById('clr');
 
+/* persistent blacklist (per browser) */
+const blacklist = new Set(JSON.parse(localStorage.getItem('bl') || '[]'));
+
+/* attach click handlers to every .word span */
+function attachClicks(){
+  document.querySelectorAll('#out .word').forEach(span=>{
+    const w = span.dataset.w;
+    if(blacklist.has(w)) span.classList.add('blacklisted');
+
+    span.onclick = () => {
+      if(blacklist.has(w)){
+        blacklist.delete(w);
+        span.classList.remove('blacklisted');
+      }else{
+        blacklist.add(w);
+        span.classList.add('blacklisted');
+      }
+      localStorage.setItem('bl', JSON.stringify([...blacklist]));
+    };
+  });
+}
+
+/* handle form submit */
 form.onsubmit = async e => {
   e.preventDefault();
   const rack = new FormData(form).get('rack').trim();
   if(!rack) return;
   out.textContent = 'Loading…';
-  try {
-    const r = await fetch('/api?rack='+encodeURIComponent(rack));
-    out.textContent = await r.text();
-  } catch(err){
-    out.textContent = '⚠️  Network error';
+
+  const url = `/api?rack=${encodeURIComponent(rack)}&blacklist=${[...blacklist].join(',')}`;
+  try{
+    const html = await (await fetch(url)).text();
+    out.innerHTML = html;
+    attachClicks();
+  }catch{
+    out.textContent = '⚠️ Network error';
   }
 };
 
-clr.onclick = () => {                      // NEW clear logic
-  form.reset();                            // clears input
-  out.textContent = '';                    // clears results
+/* clear current view (keeps saved blacklist) */
+clr.onclick = () => {
+  form.reset();
+  out.textContent = '';
   form.elements.rack.focus();
 };
 </script>

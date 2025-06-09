@@ -17,17 +17,35 @@ def exact_anagrams(rack: str) -> list[str]:
              soup.select("div.panel-body.unscrambled li > a") if ok(a.text)}
     return sorted(words)
 
-def format_groups(words, cols=5):
+def format_groups(words, cols: int = 5) -> str:
+    """Return the nicely formatted, clickable word list."""
+    from collections import defaultdict
+
+    # group words by first letter
     groups = defaultdict(list)
     for w in words:
-        groups[w[0]].append(w.upper())
+        groups[w[0]].append(w.upper())          # store ALL-CAPS version
+
     lines = []
     for idx, letter in enumerate(sorted(groups), 1):
-        rows = [groups[letter][i:i+cols] for i in range(0, len(groups[letter]), cols)]
+        # break each letter group into rows of <cols> words
+        rows = [
+            groups[letter][i : i + cols]
+            for i in range(0, len(groups[letter]), cols)
+        ]
         for r, row in enumerate(rows):
-            prefix = f"{idx:>3}. {letter.upper()}: " if r == 0 else " " * (len(f"{idx:>3}. {letter.upper()}: "))
-            lines.append(prefix + " ".join(row))
-        lines.append("")          # blank line between letter-groups
+            prefix = (
+                f"{idx:>3}. {letter.upper()}: "  # first row in the group
+                if r == 0
+                else " " * (len(f"{idx:>3}. {letter.upper()}: "))
+            )
+            # every word becomes a clickable span
+            line_body = " ".join(
+                f'<span class="word" data-w="{w}">{w}</span>' for w in row
+            )
+            lines.append(prefix + line_body)
+        lines.append("")                         # blank line between groups
+
     return "\n".join(lines)
 
 @app.route("/")
