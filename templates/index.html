@@ -34,6 +34,8 @@ button{padding:.57rem .9rem;font-size:1rem;cursor:pointer;}
 .word.blacklisted{text-decoration:line-through;opacity:.45;}
 
 #exp{padding:.57rem .9rem;font-size:1rem;}
+#paste{flex:1 1 100%;padding:.55rem;font-size:1rem;margin-top:.4rem;}
+#imp  {padding:.57rem .9rem;font-size:1rem;}
 
 </style>
 </head>
@@ -54,6 +56,8 @@ button{padding:.57rem .9rem;font-size:1rem;cursor:pointer;}
     <button>Go</button>
     <button type="button" id="clr">Clear</button>
 	<button type="button" id="exp">📄</button>
+	<input type="text" id="paste" placeholder="paste words here">
+	<button type="button" id="imp">Import</button>
   </form>
 
   <div id="out" class="box"></div>
@@ -148,6 +152,18 @@ document.getElementById('exp').onclick = () => {
   URL.revokeObjectURL(a.href);
 };
 
+document.getElementById('imp').onclick = () => {
+  const txt = document.getElementById('paste').value.toUpperCase();
+  if (!txt.trim()) return;
+
+  // add every token separated by whitespace or commas
+  txt.split(/[\s,]+/).forEach(w => blacklist.add(w));
+  localStorage.setItem('bl', JSON.stringify([...blacklist]));
+
+  renderBL();                              // refresh on-screen list (if you show it)
+  document.getElementById('paste').value = '';
+  alert('Imported!');
+};
 
 </script>
 </body>
