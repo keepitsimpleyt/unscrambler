@@ -13,8 +13,8 @@ from wordfreq import zipf_frequency, top_n_list
 app = Flask(__name__, static_url_path="", static_folder="static", template_folder="templates")
 
 # ── 1 · Build an in-memory COMMON word set ──────────────────────────────────
-ZIPF_THRESHOLD = 3.5          # adjust up (stricter) or down (looser)
-MAX_WORDS      = 250_000      # pull this many from wordfreq’s ranked list
+ZIPF_THRESHOLD = 3.2          # adjust up (stricter) or down (looser)
+MAX_WORDS      = 400_000      # pull this many from wordfreq’s ranked list
 
 COMMON_WORDS = {
     w.upper()
