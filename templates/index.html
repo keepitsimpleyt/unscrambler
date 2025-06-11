@@ -32,6 +32,9 @@ button{padding:.57rem .9rem;font-size:1rem;cursor:pointer;}
 /* ─── Clickable words ───────────────────────────── */
 .word{cursor:pointer;margin-right:.35rem;}
 .word.blacklisted{text-decoration:line-through;opacity:.45;}
+
+#exp{padding:.57rem .9rem;font-size:1rem;}
+
 </style>
 </head>
 
@@ -50,6 +53,7 @@ button{padding:.57rem .9rem;font-size:1rem;cursor:pointer;}
     <!-- actions -->
     <button>Go</button>
     <button type="button" id="clr">Clear</button>
+	<button type="button" id="exp">📄</button>
   </form>
 
   <div id="out" class="box"></div>
@@ -124,6 +128,27 @@ document.getElementById('add').onclick = () => {
   document.querySelectorAll(`#out .word[data-w="${w}"]`)
           .forEach(span => span.classList.toggle('blacklisted'));
 };
+
+/* export blacklist to clipboard + optional download */
+document.getElementById('exp').onclick = () => {
+  const list = [...blacklist].sort().join('\n');      // one per line
+  if(!list){ alert('Blacklist is empty'); return; }
+
+  /* copy to clipboard (phones show a toast) */
+  navigator.clipboard.writeText(list).then(()=>{
+    alert('Blacklist copied to clipboard!');
+  });
+
+  /* also trigger a .txt download so you have a file */
+  const blob = new Blob([list], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'blacklist.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+
 </script>
 </body>
 </html>
