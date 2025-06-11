@@ -1,61 +1,60 @@
-# app.py  –  Flask backend (LOCAL word-list, same UI)
-# ------------------------------------------
-#
-# pip install flask wordfreq beautifulsoup4  (bs4 only if you still keep the old scraper somewhere)
-#
-# Start locally:  python app.py
-# Render/Web host: same Procfile / gunicorn start cmd
-# ------------------------------------------
+# app.py  –  Flask backend (scrapes AllScrabbleWords.com)
+# -------------------------------------------------------
 from collections import Counter, defaultdict
+from pathlib import Path
+import requests
+from bs4 import BeautifulSoup
 from flask import Flask, request, render_template, jsonify
-from wordfreq import zipf_frequency, top_n_list
 
-app = Flask(__name__, static_url_path="", static_folder="static", template_folder="templates")
+app = Flask(__name__,
+            static_url_path="",
+            static_folder="static",
+            template_folder="templates")
 
-# ── 1 · Build an in-memory COMMON word set ──────────────────────────────────
-ZIPF_THRESHOLD = 3.2          # adjust up (stricter) or down (looser)
-MAX_WORDS      = 400_000      # pull this many from wordfreq’s ranked list
-
-COMMON_WORDS = {
-    w.upper()
-    for w in top_n_list("en", MAX_WORDS)
-    if len(w) >= 3 and zipf_frequency(w, "en") >= ZIPF_THRESHOLD
-}
-
-# ── 2 · Hard-wired blacklist always applied ────────────────────────────────
+# ---- permanent blacklist (always hidden) ---------------
 HARD_BLACKLIST = {
-    "PRE", "BUM",  # existing examples
-    # add more permanent junk words here if you’d like
+    "PRE", "BUM",  # add more here if you like
 }
 
-# ── 3 · Helper: exact anagrams using local list ────────────────────────────
-def exact_anagrams(rack: str) -> list[str]:
-    have = Counter(rack)
-    return sorted(
-        w for w in COMMON_WORDS
-        if not (Counter(w) - have)                 # can be built
-        and w not in HARD_BLACKLIST               # drop permanent junk
-    )
+# ---- helper: scrape & filter ----------------------------
+def scrape_words(rack: str) -> list[str]:
+    url = f"https://www.allscrabblewords.com/unscramble/{rack.lower()}"
+    html = requests.get(url, timeout=10).text
+    soup = BeautifulSoup(html, "html.parser")
 
-# ── 4 · Helper: format list to clickable HTML (same as before) ─────────────
+    raw = (
+        a.text.strip().upper()
+        for a in soup.select("div.panel-body.unscrambled li > a")
+    )
+    have = Counter(rack)
+    words = {
+        w for w in raw
+        if len(w) >= 3 and not (Counter(w) - have)  # exact anagram only
+        and w not in HARD_BLACKLIST
+    }
+    return sorted(words)
+
+# ---- helper: HTML formatter (unchanged) -----------------
 def format_groups(words: list[str], cols: int = 5) -> str:
     groups = defaultdict(list)
     for w in words:
-        groups[w[0]].append(w)                    # already ALL-CAPS
+        groups[w[0]].append(w)
 
-    lines: list[str] = []
+    lines = []
     for idx, letter in enumerate(sorted(groups), 1):
-        rows = [groups[letter][i : i + cols] for i in range(0, len(groups[letter]), cols)]
+        rows = [groups[letter][i : i + cols]
+                for i in range(0, len(groups[letter]), cols)]
         for r, row in enumerate(rows):
-            prefix = f"{idx:>3}. {letter}: " if r == 0 else " " * (len(f"{idx:>3}. {letter}: "))
+            prefix = f"{idx:>3}. {letter}: " if r == 0 \
+                     else " " * (len(f"{idx:>3}. {letter}: "))
             line_body = " ".join(
                 f'<span class="word" data-w="{w}">{w}</span>' for w in row
             )
             lines.append(prefix + line_body)
-        lines.append("")                          # blank line between letter blocks
+        lines.append("")
     return "\n".join(lines)
 
-# ── 5 · Routes ──────────────────────────────────────────────────────────────
+# ---- routes ---------------------------------------------
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -66,12 +65,12 @@ def api():
     if not rack:
         return jsonify(error="rack param missing"), 400
 
-    # dynamic (per-browser) blacklist comes from JS as comma list
-    dyn = {w.strip().upper() for w in request.args.get("blacklist", "").split(",") if w.strip()}
+    dyn = {w.strip().upper()
+           for w in request.args.get("blacklist", "").split(",") if w.strip()}
 
-    words = [w for w in exact_anagrams(rack) if w not in dyn]
+    words = [w for w in scrape_words(rack) if w not in dyn]
     return format_groups(words) or "(No 3+-letter anagrams)"
 
-# ── 6 · Run locally (Render uses gunicorn cmd) ──────────────────────────────
+# ---- local run ------------------------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)

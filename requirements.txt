@@ -1,5 +1,4 @@
 flask
+gunicorn
 requests
 beautifulsoup4
-gunicorn          # Render & Fly need this; Replit doesn’t care
-wordfreq 
