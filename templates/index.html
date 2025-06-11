@@ -36,6 +36,15 @@ button{padding:.57rem .9rem;font-size:1rem;cursor:pointer;}
 #exp{padding:.57rem .9rem;font-size:1rem;}
 #paste{flex:1 1 100%;padding:.55rem;font-size:1rem;margin-top:.4rem;}
 #imp  {padding:.57rem .9rem;font-size:1rem;}
+label.file{
+  display:inline-block;
+  padding:.57rem .9rem;
+  font-size:1rem;
+  cursor:pointer;
+  border:1px solid #ccc;
+  border-radius:4px;
+}
+label.file input{display:none;}   /* hide raw input */
 
 </style>
 </head>
@@ -57,6 +66,8 @@ button{padding:.57rem .9rem;font-size:1rem;cursor:pointer;}
     <button type="button" id="clr">Clear</button>
 	<button type="button" id="exp">📄</button>
 	<input type="text" id="paste" placeholder="paste words here">
+	<label class="file">  📂 <input type="file" id="file" accept=".txt">
+</label>
 	<button type="button" id="imp">Import</button>
   </form>
 
@@ -163,6 +174,21 @@ document.getElementById('imp').onclick = () => {
   renderBL();                              // refresh on-screen list (if you show it)
   document.getElementById('paste').value = '';
   alert('Imported!');
+};
+
+/* ---------- IMPORT from .txt file ---------- */
+document.getElementById('file').onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const txt = await file.text();
+  txt.toUpperCase()
+     .split(/[\s,]+/)
+     .forEach(w => w && blacklist.add(w));
+
+  localStorage.setItem('bl', JSON.stringify([...blacklist]));
+  renderBL();                 // refresh on-screen list if you show it
+  alert(`Imported ${file.name} (${blacklist.size} words total).`);
+  e.target.value = "";        // reset so same file can be chosen again
 };
 
 </script>
