@@ -45,6 +45,7 @@ label.file{
   border-radius:4px;
 }
 label.file input{display:none;}   /* hide raw input */
+.tools{display:none;margin-top:.6rem;}
 
 </style>
 </head>
@@ -64,11 +65,14 @@ label.file input{display:none;}   /* hide raw input */
     <!-- actions -->
     <button>Go</button>
     <button type="button" id="clr">Clear</button>
-	<button type="button" id="exp">📄</button>
-	<input type="text" id="paste" placeholder="paste words here">
-	<label class="file">  📂 <input type="file" id="file" accept=".txt">
-</label>
-	<button type="button" id="imp">Import</button>
+	<button type="button" id="gear">⚙️</button>
+<div class="tools">
+  <button type="button" id="exp">📄</button>
+  <input type="text" id="paste" placeholder="paste words here">
+  <button type="button" id="clip">Paste ▶︎</button>
+  <button type="button" id="imp">Import</button>
+  <label class="file">📂 <input type="file" id="file" accept=".txt"></label>
+</div>
   </form>
 
   <div id="out" class="box"></div>
@@ -189,6 +193,10 @@ document.getElementById('file').onchange = async e => {
   renderBL();                 // refresh on-screen list if you show it
   alert(`Imported ${file.name} (${blacklist.size} words total).`);
   e.target.value = "";        // reset so same file can be chosen again
+};
+document.getElementById('gear').onclick = () => {
+  const box   = document.querySelector('.tools');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
 };
 
 </script>
