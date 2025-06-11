@@ -33,20 +33,16 @@ button{padding:.57rem .9rem;font-size:1rem;cursor:pointer;}
 .word{cursor:pointer;margin-right:.35rem;}
 .word.blacklisted{text-decoration:line-through;opacity:.45;}
 
+/* Import / export widgets */
 #exp{padding:.57rem .9rem;font-size:1rem;}
 #paste{flex:1 1 100%;padding:.55rem;font-size:1rem;margin-top:.4rem;}
 #imp  {padding:.57rem .9rem;font-size:1rem;}
 label.file{
-  display:inline-block;
-  padding:.57rem .9rem;
-  font-size:1rem;
-  cursor:pointer;
-  border:1px solid #ccc;
-  border-radius:4px;
+  display:inline-block;padding:.57rem .9rem;font-size:1rem;cursor:pointer;
+  border:1px solid #ccc;border-radius:4px;
 }
-label.file input{display:none;}   /* hide raw input */
+label.file input{display:none;}
 .tools{display:none;margin-top:.6rem;}
-
 </style>
 </head>
 
@@ -62,17 +58,19 @@ label.file input{display:none;}   /* hide raw input */
     <input type="text" id="manual" placeholder="word to hide/show">
     <button type="button" id="add">⇅</button>
 
-    <!-- actions -->
+    <!-- always-visible actions -->
     <button>Go</button>
     <button type="button" id="clr">Clear</button>
-	<button type="button" id="gear">⚙️</button>
-<div class="tools">
-  <button type="button" id="exp">📄</button>
-  <input type="text" id="paste" placeholder="paste words here">
-  <button type="button" id="clip">Paste ▶︎</button>
-  <button type="button" id="imp">Import</button>
-  <label class="file">📂 <input type="file" id="file" accept=".txt"></label>
-</div>
+    <button type="button" id="gear">⚙️</button>
+
+    <!-- hide-able tools -->
+    <div class="tools">
+      <button type="button" id="exp">📄</button>
+      <input type="text" id="paste" placeholder="paste words here">
+      <button type="button" id="clip">Paste ▶︎</button>
+      <button type="button" id="imp">Import</button>
+      <label class="file">📂 <input type="file" id="file" accept=".txt"></label>
+    </div>
   </form>
 
   <div id="out" class="box"></div>
@@ -86,119 +84,118 @@ const form = document.getElementById('f'),
 /* persistent blacklist per-browser */
 const blacklist = new Set(JSON.parse(localStorage.getItem('bl') || '[]'));
 
-/* hook click-toggle onto every .word span we render */
+/* simple helper – refresh onscreen BL list if you show one */
+function renderBL(){ /* no-op placeholder */ }
+
+/* hook click-toggle onto every .word */
 function attachClicks(){
   document.querySelectorAll('#out .word').forEach(span=>{
     const w = span.dataset.w;
-    if(blacklist.has(w)) span.classList.add('blacklisted');
+    if (blacklist.has(w)) span.classList.add('blacklisted');
 
-    span.onclick = () => {
-      if(blacklist.has(w)){
-        blacklist.delete(w);
-        span.classList.remove('blacklisted');
+    span.onclick = () =>{
+      if (blacklist.has(w)){
+        blacklist.delete(w); span.classList.remove('blacklisted');
       }else{
-        blacklist.add(w);
-        span.classList.add('blacklisted');
+        blacklist.add(w); span.classList.add('blacklisted');
       }
       localStorage.setItem('bl', JSON.stringify([...blacklist]));
+      renderBL();
     };
   });
 }
 
-/* submit handler */
-form.onsubmit = async e => {
+/* ---- SUBMIT ---- */
+form.onsubmit = async e =>{
   e.preventDefault();
   const rack = new FormData(form).get('rack').trim();
-  if(!rack) return;
+  if (!rack) return;
 
   out.textContent = 'Loading…';
-  const url = `/api?rack=${encodeURIComponent(rack)}&blacklist=${[...blacklist].join(',')}`;
+  const url = `/api?rack=${encodeURIComponent(rack)}`;   // << blacklist removed
   try{
     const html = await (await fetch(url)).text();
     out.innerHTML = html;
     attachClicks();
+
+    /* hide words that were already on the blacklist */
+    [...blacklist].forEach(w=>{
+      document.querySelectorAll(`#out .word[data-w="${w}"]`)
+              .forEach(span=>span.classList.add('blacklisted'));
+    });
   }catch{
     out.textContent = '⚠️ Network error';
   }
 };
 
 /* clear current view (keeps saved blacklist) */
-clr.onclick = () => {
-  form.reset();
-  out.textContent = '';
-  form.elements.rack.focus();
+clr.onclick = () =>{
+  form.reset(); out.textContent = ''; form.elements.rack.focus();
 };
 
-/* ───────── manual add/remove widget ───────── */
-document.getElementById('add').onclick = () => {
+/* ---- manual add/remove ---- */
+document.getElementById('add').onclick = () =>{
   const inp = document.getElementById('manual');
   const w   = inp.value.trim().toUpperCase();
-  if(!w) return;
+  if (!w) return;
 
-  if(blacklist.has(w)){
-    blacklist.delete(w);
-  }else{
-    blacklist.add(w);
-  }
+  if (blacklist.has(w)) blacklist.delete(w); else blacklist.add(w);
   localStorage.setItem('bl', JSON.stringify([...blacklist]));
   inp.value = '';
 
-  /* instantly update strike-through if word is visible */
   document.querySelectorAll(`#out .word[data-w="${w}"]`)
-          .forEach(span => span.classList.toggle('blacklisted'));
+          .forEach(span=>span.classList.toggle('blacklisted'));
+  renderBL();
 };
 
-/* export blacklist to clipboard + optional download */
-document.getElementById('exp').onclick = () => {
-  const list = [...blacklist].sort().join('\n');      // one per line
-  if(!list){ alert('Blacklist is empty'); return; }
+/* ---- EXPORT ---- */
+document.getElementById('exp').onclick = () =>{
+  const list = [...blacklist].sort().join('\n');
+  if (!list){ alert('Blacklist is empty'); return; }
 
-  /* copy to clipboard (phones show a toast) */
-  navigator.clipboard.writeText(list).then(()=>{
-    alert('Blacklist copied to clipboard!');
-  });
-
-  /* also trigger a .txt download so you have a file */
-  const blob = new Blob([list], {type:'text/plain'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'blacklist.txt';
-  a.click();
+  navigator.clipboard.writeText(list).then(()=>alert('Copied to clipboard!'));
+  const blob=new Blob([list],{type:'text/plain'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='blacklist.txt'; a.click();
   URL.revokeObjectURL(a.href);
 };
 
-document.getElementById('imp').onclick = () => {
-  const txt = document.getElementById('paste').value.toUpperCase();
+/* ---- PASTE from clipboard ---- */
+document.getElementById('clip').onclick = async ()=>{
+  try{
+    const txt = await navigator.clipboard.readText();
+    if (!txt.trim()){ alert('Clipboard empty'); return; }
+    document.getElementById('paste').value = txt;
+  }catch{ alert('Clipboard read failed'); }
+};
+
+/* ---- IMPORT (textbox) ---- */
+document.getElementById('imp').onclick = () =>{
+  const txt=document.getElementById('paste').value.toUpperCase();
   if (!txt.trim()) return;
-
-  // add every token separated by whitespace or commas
-  txt.split(/[\s,]+/).forEach(w => blacklist.add(w));
-  localStorage.setItem('bl', JSON.stringify([...blacklist]));
-
-  renderBL();                              // refresh on-screen list (if you show it)
-  document.getElementById('paste').value = '';
-  alert('Imported!');
+  txt.split(/[\s,]+/).forEach(w=>w&&blacklist.add(w));
+  localStorage.setItem('bl',JSON.stringify([...blacklist]));
+  renderBL(); document.getElementById('paste').value=''; alert('Imported!');
 };
 
-/* ---------- IMPORT from .txt file ---------- */
-document.getElementById('file').onchange = async e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const txt = await file.text();
-  txt.toUpperCase()
-     .split(/[\s,]+/)
-     .forEach(w => w && blacklist.add(w));
-
-  localStorage.setItem('bl', JSON.stringify([...blacklist]));
-  renderBL();                 // refresh on-screen list if you show it
-  alert(`Imported ${file.name} (${blacklist.size} words total).`);
-  e.target.value = "";        // reset so same file can be chosen again
-};
-document.getElementById('gear').onclick = () => {
-  const box   = document.querySelector('.tools');
-  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+/* ---- IMPORT from file ---- */
+document.getElementById('file').onchange = async e =>{
+  const file=e.target.files[0]; if (!file) return;
+  const txt=await file.text();
+  txt.toUpperCase().split(/[\s,]+/).forEach(w=>w&&blacklist.add(w));
+  localStorage.setItem('bl',JSON.stringify([...blacklist]));
+  renderBL(); alert(`Imported ${file.name}`);
+  e.target.value='';
 };
 
+/* ---- Gear toggle (show/hide tools) ---- */
+document.getElementById('gear').onclick = ()=>{
+  const box=document.querySelector('.tools');
+  box.style.display = box.style.display==='none' ? 'block' : 'none';
+};
+
+/* initial render of on-screen BL list, if you use one */
+renderBL();
 </script>
 </body>
 </html>
