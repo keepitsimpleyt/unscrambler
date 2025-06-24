@@ -5,6 +5,7 @@ import requests
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
+import traceback
 
 app = Flask(__name__,
             static_url_path="",
@@ -12,7 +13,7 @@ app = Flask(__name__,
             template_folder="templates")
 
 # --- Config ---
-SHEET_NAME = "Unscrambled Words"  # 📝 Change to match your sheet name exactly
+SHEET_NAME = "Unscrambled Words"  # Must match your actual sheet name
 GOOGLE_CREDS_PATH = "/etc/secrets/google_creds.json"
 
 # --- Optional: Hard blacklist ---
@@ -37,7 +38,7 @@ def scrape_words(rack: str) -> list[str]:
     }
     return sorted(words)
 
-# --- HTML output formatter ---
+# --- HTML formatter for frontend ---
 def format_groups(words: list[str], cols: int = 5) -> str:
     groups = defaultdict(list)
     for w in words:
@@ -53,13 +54,14 @@ def format_groups(words: list[str], cols: int = 5) -> str:
         lines.append("")
     return "\n".join(lines)
 
-# --- Save unique words to Google Sheets via Render secret file ---
+# --- Google Sheets logger with full error reporting ---
 def log_to_google_sheets(new_words: set[str]):
     try:
         with open("/etc/secrets/google_creds.json") as f:
             creds_dict = json.load(f)
     except Exception as e:
         print("❌ Could not load Google credentials:", e)
+        traceback.print_exc()
         return
 
     try:
@@ -78,6 +80,7 @@ def log_to_google_sheets(new_words: set[str]):
             print("ℹ️ No new words to log.")
     except Exception as e:
         print("❌ Failed to log to Google Sheets:", e)
+        traceback.print_exc()
 
 # --- Routes ---
 @app.route("/")
@@ -95,11 +98,11 @@ def api():
 
     words = [w for w in scrape_words(rack) if w not in dyn]
 
-    # ✅ Log new words to Google Sheets
+    # ✅ Attempt to log to Google Sheets
     log_to_google_sheets(set(words))
 
     return format_groups(words) or "(No 3+-letter anagrams)"
 
-# --- Run locally ---
+# --- Local run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)
