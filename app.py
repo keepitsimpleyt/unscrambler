@@ -56,7 +56,7 @@ def format_groups(words: list[str], cols: int = 5) -> str:
 # --- Save unique words to Google Sheets via Render secret file ---
 def log_to_google_sheets(new_words: set[str]):
     try:
-        with open(GOOGLE_CREDS_PATH) as f:
+        with open("/etc/secrets/google_creds.json") as f:
             creds_dict = json.load(f)
     except Exception as e:
         print("❌ Could not load Google credentials:", e)
