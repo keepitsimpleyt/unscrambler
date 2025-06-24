@@ -4,7 +4,6 @@ from bs4 import BeautifulSoup
 import requests
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import os
 import json
 
 app = Flask(__name__,
@@ -13,14 +12,15 @@ app = Flask(__name__,
             template_folder="templates")
 
 # --- Config ---
-SHEET_NAME = "UNSCRABLED WORDS"  # your Google Sheet name
+SHEET_NAME = "Unscrambled Words"  # 📝 Change to match your sheet name exactly
+GOOGLE_CREDS_PATH = "/etc/secrets/google_creds.json"
 
-# --- Hard blacklist ---
+# --- Optional: Hard blacklist ---
 HARD_BLACKLIST = {
-    "PRE", "BUM",  # add more if needed
+    "PRE", "BUM"
 }
 
-# --- Scrape from AllScrabbleWords ---
+# --- Word scraper from AllScrabbleWords ---
 def scrape_words(rack: str) -> list[str]:
     url = f"https://www.allscrabblewords.com/unscramble/{rack.lower()}"
     html = requests.get(url, timeout=10).text
@@ -37,7 +37,7 @@ def scrape_words(rack: str) -> list[str]:
     }
     return sorted(words)
 
-# --- Format word list to grouped HTML ---
+# --- HTML output formatter ---
 def format_groups(words: list[str], cols: int = 5) -> str:
     groups = defaultdict(list)
     for w in words:
@@ -53,25 +53,31 @@ def format_groups(words: list[str], cols: int = 5) -> str:
         lines.append("")
     return "\n".join(lines)
 
-# --- Log to Google Sheets securely via env var ---
+# --- Save unique words to Google Sheets via Render secret file ---
 def log_to_google_sheets(new_words: set[str]):
-    creds_json = os.environ.get("GOOGLE_CREDS_JSON")
-    if not creds_json:
-        print("⚠️ GOOGLE_CREDS_JSON not set")
+    try:
+        with open(GOOGLE_CREDS_PATH) as f:
+            creds_dict = json.load(f)
+    except Exception as e:
+        print("❌ Could not load Google credentials:", e)
         return
 
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds_dict = json.loads(creds_json)
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-    client = gspread.authorize(creds)
-    sheet = client.open(SHEET_NAME).sheet1
+    try:
+        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        client = gspread.authorize(creds)
+        sheet = client.open(SHEET_NAME).sheet1
 
-    existing = set(cell.upper() for cell in sheet.col_values(1) if cell.strip())
-    words_to_add = sorted(w for w in new_words if w not in existing)
+        existing = set(cell.upper() for cell in sheet.col_values(1) if cell.strip())
+        words_to_add = sorted(w for w in new_words if w not in existing)
 
-    if words_to_add:
-        sheet.append_rows([[w] for w in words_to_add])
-        print(f"✅ Logged {len(words_to_add)} new words to Google Sheets.")
+        if words_to_add:
+            sheet.append_rows([[w] for w in words_to_add])
+            print(f"✅ Logged {len(words_to_add)} new words to Google Sheets.")
+        else:
+            print("ℹ️ No new words to log.")
+    except Exception as e:
+        print("❌ Failed to log to Google Sheets:", e)
 
 # --- Routes ---
 @app.route("/")
@@ -89,7 +95,7 @@ def api():
 
     words = [w for w in scrape_words(rack) if w not in dyn]
 
-    # ✅ Log to Google Sheets (de-duplicated)
+    # ✅ Log new words to Google Sheets
     log_to_google_sheets(set(words))
 
     return format_groups(words) or "(No 3+-letter anagrams)"
