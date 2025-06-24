@@ -1,22 +1,26 @@
-# app.py  –  Flask backend (scrapes AllScrabbleWords.com)
-# -------------------------------------------------------
 from collections import Counter, defaultdict
-from pathlib import Path
-import requests
-from bs4 import BeautifulSoup
 from flask import Flask, request, render_template, jsonify
+from bs4 import BeautifulSoup
+import requests
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import os
+import json
 
 app = Flask(__name__,
             static_url_path="",
             static_folder="static",
             template_folder="templates")
 
-# ---- permanent blacklist (always hidden) ---------------
+# --- Config ---
+SHEET_NAME = "UNSCRABLED WORDS"  # your Google Sheet name
+
+# --- Hard blacklist ---
 HARD_BLACKLIST = {
-    "PRE", "BUM",  # add more here if you like
+    "PRE", "BUM",  # add more if needed
 }
 
-# ---- helper: scrape & filter ----------------------------
+# --- Scrape from AllScrabbleWords ---
 def scrape_words(rack: str) -> list[str]:
     url = f"https://www.allscrabblewords.com/unscramble/{rack.lower()}"
     html = requests.get(url, timeout=10).text
@@ -29,12 +33,11 @@ def scrape_words(rack: str) -> list[str]:
     have = Counter(rack)
     words = {
         w for w in raw
-        if len(w) >= 3 and not (Counter(w) - have)  # exact anagram only
-        and w not in HARD_BLACKLIST
+        if len(w) >= 3 and not (Counter(w) - have) and w not in HARD_BLACKLIST
     }
     return sorted(words)
 
-# ---- helper: HTML formatter (unchanged) -----------------
+# --- Format word list to grouped HTML ---
 def format_groups(words: list[str], cols: int = 5) -> str:
     groups = defaultdict(list)
     for w in words:
@@ -42,19 +45,35 @@ def format_groups(words: list[str], cols: int = 5) -> str:
 
     lines = []
     for idx, letter in enumerate(sorted(groups), 1):
-        rows = [groups[letter][i : i + cols]
-                for i in range(0, len(groups[letter]), cols)]
+        rows = [groups[letter][i:i+cols] for i in range(0, len(groups[letter]), cols)]
         for r, row in enumerate(rows):
-            prefix = f"{idx:>3}. {letter}: " if r == 0 \
-                     else " " * (len(f"{idx:>3}. {letter}: "))
-            line_body = " ".join(
-                f'<span class="word" data-w="{w}">{w}</span>' for w in row
-            )
+            prefix = f"{idx:>3}. {letter}: " if r == 0 else " " * (len(f"{idx:>3}. {letter}: "))
+            line_body = " ".join(f'<span class="word" data-w="{w}">{w}</span>' for w in row)
             lines.append(prefix + line_body)
         lines.append("")
     return "\n".join(lines)
 
-# ---- routes ---------------------------------------------
+# --- Log to Google Sheets securely via env var ---
+def log_to_google_sheets(new_words: set[str]):
+    creds_json = os.environ.get("GOOGLE_CREDS_JSON")
+    if not creds_json:
+        print("⚠️ GOOGLE_CREDS_JSON not set")
+        return
+
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    creds_dict = json.loads(creds_json)
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    client = gspread.authorize(creds)
+    sheet = client.open(SHEET_NAME).sheet1
+
+    existing = set(cell.upper() for cell in sheet.col_values(1) if cell.strip())
+    words_to_add = sorted(w for w in new_words if w not in existing)
+
+    if words_to_add:
+        sheet.append_rows([[w] for w in words_to_add])
+        print(f"✅ Logged {len(words_to_add)} new words to Google Sheets.")
+
+# --- Routes ---
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -69,8 +88,12 @@ def api():
            for w in request.args.get("blacklist", "").split(",") if w.strip()}
 
     words = [w for w in scrape_words(rack) if w not in dyn]
+
+    # ✅ Log to Google Sheets (de-duplicated)
+    log_to_google_sheets(set(words))
+
     return format_groups(words) or "(No 3+-letter anagrams)"
 
-# ---- local run ------------------------------------------
+# --- Run locally ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)
