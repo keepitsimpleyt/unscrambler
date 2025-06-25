@@ -54,17 +54,23 @@ def get_tab_words(tab: str) -> set[str]:
 # HTML formatter
 def format_groups(words: list[str], cols: int = 5) -> str:
     groups = defaultdict(list)
-    for w in words: groups[w[0]].append(w)
+    for w in words:
+        groups[w[0]].append(w)
+
+    # Sort each group so plurals follow base (e.g. WIT → WITS)
+    for letter in groups:
+        groups[letter].sort(key=lambda w: (w.rstrip("S"), w))
 
     lines = []
     for idx, letter in enumerate(sorted(groups), 1):
         rows = [groups[letter][i:i+cols] for i in range(0, len(groups[letter]), cols)]
         for r, row in enumerate(rows):
             prefix = f"{idx:>3}. {letter}: " if r == 0 else " " * (len(f"{idx:>3}. {letter}: "))
-            body   = " ".join(f'<span class="word" data-w="{w}">{w}</span>' for w in row)
-            lines.append(prefix + body)
+            line_body = " ".join(f'<span class="word" data-w="{w}">{w}</span>' for w in row)
+            lines.append(prefix + line_body)
         lines.append("")
     return "\n".join(lines)
+
 
 # ──────────────────────────────────────────────────────────
 @app.route("/")
