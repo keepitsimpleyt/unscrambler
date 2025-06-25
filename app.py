@@ -91,10 +91,15 @@ def api():
     live_blacklist = get_tab_words("Blacklist")
     live_whitelist = get_tab_words("Whitelist")
 
-    display_set = set(scraped)                              # start with scraped
-    display_set.update(w for w in live_whitelist            # add whitelisted
-                       if w not in display_set)
-    display_set.difference_update(live_blacklist)           # remove blacklisted
+    rack_counter = Counter(rack)
+    valid_whitelist = {
+        w for w in live_whitelist
+        if len(w) >= 3 and not (Counter(w) - rack_counter)
+    }
+
+    display_set = set(scraped)
+    display_set.update(w for w in valid_whitelist if w not in display_set)
+    display_set.difference_update(live_blacklist)
 
     display_words = sorted(display_set)
     return format_groups(display_words) or "(No 3+-letter anagrams)"
