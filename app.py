@@ -111,8 +111,21 @@ def api():
         log_words_to_tab(blacklist_words, "Blacklist")
 
     # 4. Filter for display only
+    def get_whitelist() -> set[str]:
+        try:
+            sheet = get_sheet("Whitelist")
+            return {cell.strip().upper() for cell in sheet.col_values(1) if cell.strip()}
+        except Exception as e:
+            print("❌ Failed to load whitelist:", e)
+            traceback.print_exc()
+            return set()
+
+    # 4. Combine scraped + whitelisted, remove blacklisted
     live_blacklist = get_blacklist()
-    display_words = [w for w in scraped_words if w not in live_blacklist]
+    live_whitelist = get_whitelist()
+    combined_words = set(scraped_words).union(live_whitelist)
+    display_words = sorted(w for w in combined_words if w not in live_blacklist)
+
 
     return format_groups(display_words) or "(No 3+-letter anagrams)"
 
