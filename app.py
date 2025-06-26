@@ -53,15 +53,25 @@ def get_tab_words(tab: str) -> set[str]:
 # ──────────────────────────────────────────────────────────
 # HTML formatter
 def format_groups(words: list[str], cols: int = 5) -> str:
+    from collections import defaultdict
+
     groups = defaultdict(list)
     for w in words:
         groups[w[0]].append(w)
 
-    # Sort each group so plurals follow base (e.g. WIT → WITS)
-    for letter in groups:
-        groups[letter].sort(key=lambda w: (w.rstrip("S"), w))
-
     lines = []
+
+    # 1. Show 7 and 6-letter words first
+    top_words = [w for w in words if len(w) in (6, 7)]
+    if top_words:
+        lines.append("🔥 Longest Words:\n")
+        for i in range(0, len(top_words), cols):
+            row = top_words[i:i+cols]
+            line = " ".join(f'<span class="word" data-w="{w}">{w}</span>' for w in row)
+            lines.append(f"     {line}")
+        lines.append("")
+
+    # 2. Then grouped A-Z list (still includes duplicates)
     for idx, letter in enumerate(sorted(groups), 1):
         rows = [groups[letter][i:i+cols] for i in range(0, len(groups[letter]), cols)]
         for r, row in enumerate(rows):
@@ -69,6 +79,7 @@ def format_groups(words: list[str], cols: int = 5) -> str:
             line_body = " ".join(f'<span class="word" data-w="{w}">{w}</span>' for w in row)
             lines.append(prefix + line_body)
         lines.append("")
+
     return "\n".join(lines)
 
 
