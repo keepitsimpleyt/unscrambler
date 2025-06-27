@@ -64,6 +64,7 @@
     <input type="number" id="exact-length" min="1" max="12" style="width:50px;">
     <button type="button" id="apply-pattern">Apply Pattern</button>
     <button type="button" id="reset-pattern">Reset</button>
+	<button type="button" id="clear-pattern-inputs">Clear Inputs</button>
   </div>
 
   <div id="out" class="box"></div>
@@ -224,6 +225,12 @@ document.getElementById('file').onchange = async e => {
   renderBL(); alert(`Imported ${file.name}`);
   e.target.value = '';
 };
+
+document.getElementById("clear-pattern-inputs").addEventListener("click", () => {
+  document.querySelectorAll("#pattern-boxes input").forEach(i => i.value = "");
+  document.getElementById("exact-length").value = "";
+});
+
 
 renderBL();
 </script>
