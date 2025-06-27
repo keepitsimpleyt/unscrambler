@@ -205,13 +205,18 @@ document.getElementById("apply-pattern").addEventListener("click", () => {
     const val = i.value.trim().toUpperCase();
     return val.length === 1 ? val : ".";
   }).join("");
-  if (!pattern) return;
+
+  if (!pattern || pattern === ".".repeat(pattern.length)) return;
+
+  const regex = new RegExp("^" + pattern + "$"); // match whole word
   const spans = document.querySelectorAll(".word");
+
   spans.forEach(span => {
     const w = span.textContent.trim().toUpperCase();
-    span.style.display = (new RegExp("^" + pattern)).test(w) ? "inline" : "none";
+    span.style.display = regex.test(w) ? "inline" : "none";
   });
 });
+
 
 document.getElementById("reset-pattern").addEventListener("click", () => {
   document.querySelectorAll(".word").forEach(span => {
