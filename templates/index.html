@@ -209,7 +209,11 @@ document.querySelector("input[name='rack']").addEventListener("input", e => {
 // Apply pattern filter
 document.getElementById("apply-pattern").addEventListener("click", () => {
   const inputs = [...document.querySelectorAll("#pattern-boxes input")];
-  const pattern = inputs.map(i => i.value.trim().toUpperCase() || ".").join("");
+ const pattern = inputs.map(i => {
+  const val = i.value.trim().toUpperCase();
+  return val.length === 1 ? val : ".";
+}).join("");
+
   if (!pattern) return;
   const spans = document.querySelectorAll(".word");
   spans.forEach(span => {
