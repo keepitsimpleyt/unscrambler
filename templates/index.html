@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html>
 <head>
@@ -6,11 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Unscrambler</title>
   <style>
-    body {
-      font: 18px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
-      margin: 0; padding: 1rem; background: #fafafa;
-    }
-    #wrap { max-width: 520px; margin: auto; }
+    body { font: 18px/1.4 sans-serif; margin: 0; padding: 1rem; background: #fafafa; }
+    #wrap { max-width: 620px; margin: auto; }
     form { display: flex; flex-wrap: wrap; gap: .6rem; margin-bottom: .9rem; }
     input[type=text] { padding: .55rem; font-size: 1rem; }
     input[name=rack] { flex: 1 1 auto; }
@@ -18,33 +14,26 @@
     button { padding: .57rem .9rem; font-size: 1rem; cursor: pointer; }
     .box {
       background: #fff; border: 1px solid #ddd; padding: 1rem; min-height: 160px;
-      font-family: SFMono-Regular, Consolas, monospace; font-size: 16px;
+      font-family: monospace; font-size: 16px;
       white-space: pre-wrap; overflow-x: auto;
     }
     .word { cursor: pointer; margin-right: .35rem; }
     .word.blacklisted { text-decoration: line-through; opacity: .45; }
-    #exp { padding: .57rem .9rem; font-size: 1rem; }
-    #paste { flex: 1 1 100%; padding: .55rem; font-size: 1rem; margin-top: .4rem; }
-    #imp { padding: .57rem .9rem; font-size: 1rem; }
-    label.file {
-      display: inline-block; padding: .57rem .9rem; font-size: 1rem; cursor: pointer;
-      border: 1px solid #ccc; border-radius: 4px;
-    }
-    label.file input { display: none; }
     .tools { display: none; margin-top: .6rem; }
+    .filter-row { margin: 1rem 0; }
+    .filter-row input { width: 2rem; text-align: center; }
   </style>
 </head>
 <body>
 <div id="wrap">
-  <h3>Unscramble – tap a word to hide/show, or use the box</h3>
+  <h3>Unscramble – tap a word to hide/show, or use filters</h3>
 
   <form id="f">
     <input type="text" name="rack" maxlength="12" placeholder="letters (e.g. ypnatr)" required>
     <input type="text" id="manual" placeholder="word to hide/show">
     <button type="button" id="add">⇅</button>
 
-    <label>
-      Min Length:
+    <label>Min Length:
       <select id="minLengthSelect">
         <option value="3">3+</option>
         <option value="4">4+</option>
@@ -67,9 +56,12 @@
     </div>
   </form>
 
-  <div style="margin:1rem 0;">
-    <strong>Positional Letter Filter:</strong><br>
-    <div id="pattern-boxes" style="margin:0.5rem 0;"></div>
+  <!-- Positional Letter Filter -->
+  <div class="filter-row">
+    <strong>Positional Filter (optional):</strong><br>
+    <div id="pattern-boxes"></div>
+    Length:
+    <input type="number" id="exact-length" min="1" max="12" style="width:50px;">
     <button type="button" id="apply-pattern">Apply Pattern</button>
     <button type="button" id="reset-pattern">Reset</button>
   </div>
@@ -84,7 +76,7 @@ const form = document.getElementById('f'),
       minLengthSelect = document.getElementById('minLengthSelect');
 
 const blacklist = new Set(JSON.parse(localStorage.getItem('bl') || '[]'));
-function renderBL(){}
+function renderBL() {}
 
 function attachClicks(){
   document.querySelectorAll('#out .word').forEach(span => {
@@ -102,6 +94,7 @@ function attachClicks(){
   });
 }
 
+// --- Submit ---
 form.onsubmit = async e => {
   e.preventDefault();
   const rack = new FormData(form).get('rack').trim();
@@ -127,9 +120,10 @@ clr.onclick = () => {
   form.reset(); out.textContent = ''; form.elements.rack.focus();
 };
 
+// Manual toggle
 document.getElementById('add').onclick = () => {
   const inp = document.getElementById('manual');
-  const w   = inp.value.trim().toUpperCase();
+  const w = inp.value.trim().toUpperCase();
   if (!w) return;
   if (blacklist.has(w)) blacklist.delete(w); else blacklist.add(w);
   localStorage.setItem('bl', JSON.stringify([...blacklist]));
@@ -139,46 +133,7 @@ document.getElementById('add').onclick = () => {
   renderBL();
 };
 
-document.getElementById('exp').onclick = () => {
-  const list = [...blacklist].sort().join('\n');
-  if (!list){ alert('Blacklist is empty'); return; }
-  navigator.clipboard.writeText(list).then(()=>alert('Copied to clipboard!'));
-  const blob = new Blob([list], { type:'text/plain' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = 'blacklist.txt'; a.click();
-  URL.revokeObjectURL(a.href);
-};
-
-document.getElementById('clip').onclick = async () => {
-  try {
-    const txt = await navigator.clipboard.readText();
-    if (!txt.trim()){ alert('Clipboard empty'); return; }
-    document.getElementById('paste').value = txt;
-  } catch { alert('Clipboard read failed'); }
-};
-
-document.getElementById('imp').onclick = () => {
-  const txt = document.getElementById('paste').value.toUpperCase();
-  if (!txt.trim()) return;
-  txt.split(/[\s,]+/).forEach(w => w && blacklist.add(w));
-  localStorage.setItem('bl', JSON.stringify([...blacklist]));
-  renderBL(); document.getElementById('paste').value = ''; alert('Imported!');
-};
-
-document.getElementById('file').onchange = async e => {
-  const file = e.target.files[0]; if (!file) return;
-  const txt = await file.text();
-  txt.toUpperCase().split(/[\s,]+/).forEach(w => w && blacklist.add(w));
-  localStorage.setItem('bl', JSON.stringify([...blacklist]));
-  renderBL(); alert(`Imported ${file.name}`);
-  e.target.value = '';
-};
-
-document.getElementById('gear').onclick = () => {
-  const box = document.querySelector('.tools');
-  box.style.display = box.style.display === 'none' ? 'block' : 'none';
-};
-
+// Pattern Input UI
 function createPatternBoxes(len) {
   const box = document.getElementById("pattern-boxes");
   box.innerHTML = '';
@@ -193,36 +148,82 @@ function createPatternBoxes(len) {
     box.appendChild(input);
   }
 }
-
 document.querySelector("input[name='rack']").addEventListener("input", e => {
   const rack = e.target.value.trim().toUpperCase();
   createPatternBoxes(Math.min(rack.length, 7));
 });
 
+// Apply pattern filter
 document.getElementById("apply-pattern").addEventListener("click", () => {
   const inputs = [...document.querySelectorAll("#pattern-boxes input")];
-  const pattern = inputs.map(i => {
-    const val = i.value.trim().toUpperCase();
-    return val.length === 1 ? val : ".";
-  }).join("");
+  const patternLetters = inputs.map(i => i.value.trim().toUpperCase());
+  const desiredLength = parseInt(document.getElementById("exact-length").value, 10);
 
-  if (!pattern || pattern === ".".repeat(pattern.length)) return;
+  document.querySelectorAll(".word").forEach(span => {
+    const word = span.textContent.trim().toUpperCase();
 
-  const regex = new RegExp("^" + pattern + "$"); // match whole word
-  const spans = document.querySelectorAll(".word");
+    // Check length
+    if (desiredLength && word.length !== desiredLength) {
+      span.style.display = "none";
+      return;
+    }
 
-  spans.forEach(span => {
-    const w = span.textContent.trim().toUpperCase();
-    span.style.display = regex.test(w) ? "inline" : "none";
+    // Check letter positions
+    for (let i = 0; i < patternLetters.length; i++) {
+      const expected = patternLetters[i];
+      if (expected && word[i] !== expected) {
+        span.style.display = "none";
+        return;
+      }
+    }
+
+    span.style.display = "inline";
   });
 });
 
-
+// Reset pattern
 document.getElementById("reset-pattern").addEventListener("click", () => {
   document.querySelectorAll(".word").forEach(span => {
     span.style.display = "inline";
   });
 });
+
+// Extras
+document.getElementById('gear').onclick = () => {
+  const box = document.querySelector('.tools');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+};
+document.getElementById('exp').onclick = () => {
+  const list = [...blacklist].sort().join('\n');
+  if (!list){ alert('Blacklist is empty'); return; }
+  navigator.clipboard.writeText(list).then(()=>alert('Copied to clipboard!'));
+  const blob = new Blob([list], { type:'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'blacklist.txt'; a.click();
+  URL.revokeObjectURL(a.href);
+};
+document.getElementById('clip').onclick = async () => {
+  try {
+    const txt = await navigator.clipboard.readText();
+    if (!txt.trim()){ alert('Clipboard empty'); return; }
+    document.getElementById('paste').value = txt;
+  } catch { alert('Clipboard read failed'); }
+};
+document.getElementById('imp').onclick = () => {
+  const txt = document.getElementById('paste').value.toUpperCase();
+  if (!txt.trim()) return;
+  txt.split(/[\s,]+/).forEach(w => w && blacklist.add(w));
+  localStorage.setItem('bl', JSON.stringify([...blacklist]));
+  renderBL(); document.getElementById('paste').value = ''; alert('Imported!');
+};
+document.getElementById('file').onchange = async e => {
+  const file = e.target.files[0]; if (!file) return;
+  const txt = await file.text();
+  txt.toUpperCase().split(/[\s,]+/).forEach(w => w && blacklist.add(w));
+  localStorage.setItem('bl', JSON.stringify([...blacklist]));
+  renderBL(); alert(`Imported ${file.name}`);
+  e.target.value = '';
+};
 
 renderBL();
 </script>
