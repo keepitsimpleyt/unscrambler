@@ -1,198 +1,41 @@
-<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Unscrambler</title>
-
-<style>
-/* ─── Layout & basics ───────────────────────────── */
-body{
-  font:18px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
-  margin:0;padding:1rem;background:#fafafa;
-}
-#wrap{max-width:520px;margin:auto;}
-
-form{display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:.9rem;}
-input[type=text]{padding:.55rem;font-size:1rem;}
-
-/* rack input grows, manual stays ~8 rem */
-input[name=rack]{flex:1 1 auto;}
-#manual         {flex:0 0 8rem;}
-
-button{padding:.57rem .9rem;font-size:1rem;cursor:pointer;}
-
-/* ─── Result box ─────────────────────────────────── */
-.box{
-  background:#fff;border:1px solid #ddd;padding:1rem;min-height:160px;
-  font-family:SFMono-Regular,Consolas,monospace;font-size:16px;
-  white-space:pre-wrap;overflow-x:auto;       /* wraps on small screens */
-}
-
-/* ─── Clickable words ───────────────────────────── */
-.word{cursor:pointer;margin-right:.35rem;}
-.word.blacklisted{text-decoration:line-through;opacity:.45;}
-
-/* Import / export widgets */
-#exp{padding:.57rem .9rem;font-size:1rem;}
-#paste{flex:1 1 100%;padding:.55rem;font-size:1rem;margin-top:.4rem;}
-#imp  {padding:.57rem .9rem;font-size:1rem;}
-label.file{
-  display:inline-block;padding:.57rem .9rem;font-size:1rem;cursor:pointer;
-  border:1px solid #ccc;border-radius:4px;
-}
-label.file input{display:none;}
-.tools{display:none;margin-top:.6rem;}
-</style>
-</head>
-
-<body>
-<div id="wrap">
-  <h3>Unscramble – tap a word to hide/show, or use the box</h3>
-
-  <form id="f">
-    <!-- main rack input -->
-    <input type="text" name="rack" maxlength="12" placeholder="letters (e.g. ypnatr)" required>
-
-    <!-- manual blacklist toggle -->
-    <input type="text" id="manual" placeholder="word to hide/show">
-    <button type="button" id="add">⇅</button>
-
-    <!-- always-visible actions -->
-	<label>
-  Min Length:
-  <select id="minLengthSelect">
-    <option value="3">3+</option>
-    <option value="4">4+</option>
-    <option value="5">5+</option>
-    <option value="6">6+</option>
-    <option value="7">7 only</option>
-  </select>
-</label>
-    <button>Go</button>
-    <button type="button" id="clr">Clear</button>
-    <button type="button" id="gear">⚙️</button>
-
-    <!-- hide-able tools -->
-    <div class="tools">
-      <button type="button" id="exp">📄</button>
-      <input type="text" id="paste" placeholder="paste words here">
-      <button type="button" id="clip">Paste ▶︎</button>
-      <button type="button" id="imp">Import</button>
-      <label class="file">📂 <input type="file" id="file" accept=".txt"></label>
-    </div>
-  </form>
-
-  <div id="out" class="box"></div>
-</div>
-<script>
-const form = document.getElementById('f'),
-      out  = document.getElementById('out'),
-      clr  = document.getElementById('clr'),
-      minLengthSelect = document.getElementById('minLengthSelect');
-
-/* persistent blacklist per-browser */
-const blacklist = new Set(JSON.parse(localStorage.getItem('bl') || '[]'));
-function renderBL(){ /* no-op */ }
-
-function attachClicks(){
-  document.querySelectorAll('#out .word').forEach(span=>{
-    const w = span.dataset.w;
-    if (blacklist.has(w)) span.classList.add('blacklisted');
-
-    span.onclick = () =>{
-      if (blacklist.has(w)){
-        blacklist.delete(w); span.classList.remove('blacklisted');
-      }else{
-        blacklist.add(w); span.classList.add('blacklisted');
-      }
-      localStorage.setItem('bl', JSON.stringify([...blacklist]));
-      renderBL();
-    };
-  });
-}
-
-/* ---- SUBMIT ---- */
-form.onsubmit = async e =>{
-  e.preventDefault();
-  const rack = new FormData(form).get('rack').trim();
-  const minLength = minLengthSelect.value;
-  if (!rack) return;
-
-  out.textContent = 'Loading…';
-  const url = `/api?rack=${encodeURIComponent(rack)}&min_length=${minLength}`;
-  try{
-    const html = await (await fetch(url)).text();
-    out.innerHTML = html;
-    attachClicks();
-    [...blacklist].forEach(w=>{
-      document.querySelectorAll(`#out .word[data-w="${w}"]`)
-              .forEach(span=>span.classList.add('blacklisted'));
-    });
-  }catch{
-    out.textContent = '⚠️ Network error';
+// Build input boxes for pattern filter
+function createPatternBoxes(len) {
+  const box = document.getElementById("pattern-boxes");
+  box.innerHTML = '';
+  for (let i = 0; i < len; i++) {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.maxLength = 1;
+    input.size = 1;
+    input.dataset.index = i;
+    input.placeholder = i + 1;
+    input.style.marginRight = '5px';
+    box.appendChild(input);
   }
-};
+}
 
-clr.onclick = () =>{
-  form.reset(); out.textContent = ''; form.elements.rack.focus();
-};
+// Auto-generate boxes when rack is typed
+document.querySelector("input[name='rack']").addEventListener("input", e => {
+  const rack = e.target.value.trim().toUpperCase();
+  createPatternBoxes(Math.min(rack.length, 7));
+});
 
-document.getElementById('add').onclick = () =>{
-  const inp = document.getElementById('manual');
-  const w   = inp.value.trim().toUpperCase();
-  if (!w) return;
+// Apply letter pattern filtering
+document.getElementById("apply-pattern").addEventListener("click", () => {
+  const inputs = [...document.querySelectorAll("#pattern-boxes input")];
+  const pattern = inputs.map(i => i.value.trim().toUpperCase() || ".").join("");
+  if (!pattern) return;
 
-  if (blacklist.has(w)) blacklist.delete(w); else blacklist.add(w);
-  localStorage.setItem('bl', JSON.stringify([...blacklist]));
-  inp.value = '';
-  document.querySelectorAll(`#out .word[data-w="${w}"]`)
-          .forEach(span=>span.classList.toggle('blacklisted'));
-  renderBL();
-};
+  const spans = document.querySelectorAll(".word");
+  spans.forEach(span => {
+    const w = span.textContent.trim().toUpperCase();
+    span.style.display = (new RegExp("^" + pattern + "$")).test(w) ? "inline" : "none";
+  });
+});
 
-document.getElementById('exp').onclick = () =>{
-  const list = [...blacklist].sort().join('\n');
-  if (!list){ alert('Blacklist is empty'); return; }
-
-  navigator.clipboard.writeText(list).then(()=>alert('Copied to clipboard!'));
-  const blob=new Blob([list],{type:'text/plain'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob); a.download='blacklist.txt'; a.click();
-  URL.revokeObjectURL(a.href);
-};
-
-document.getElementById('clip').onclick = async ()=>{
-  try{
-    const txt = await navigator.clipboard.readText();
-    if (!txt.trim()){ alert('Clipboard empty'); return; }
-    document.getElementById('paste').value = txt;
-  }catch{ alert('Clipboard read failed'); }
-};
-
-document.getElementById('imp').onclick = ()=>{
-  const txt=document.getElementById('paste').value.toUpperCase();
-  if (!txt.trim()) return;
-  txt.split(/[\s,]+/).forEach(w=>w&&blacklist.add(w));
-  localStorage.setItem('bl',JSON.stringify([...blacklist]));
-  renderBL(); document.getElementById('paste').value=''; alert('Imported!');
-};
-
-document.getElementById('file').onchange = async e =>{
-  const file=e.target.files[0]; if (!file) return;
-  const txt=await file.text();
-  txt.toUpperCase().split(/[\s,]+/).forEach(w=>w&&blacklist.add(w));
-  localStorage.setItem('bl',JSON.stringify([...blacklist]));
-  renderBL(); alert(`Imported ${file.name}`);
-  e.target.value='';
-};
-
-document.getElementById('gear').onclick = ()=>{
-  const box=document.querySelector('.tools');
-  box.style.display = box.style.display==='none' ? 'block' : 'none';
-};
-
-renderBL();
-</script>
-</body>
-</html>
+// Reset word visibility
+document.getElementById("reset-pattern").addEventListener("click", () => {
+  document.querySelectorAll(".word").forEach(span => {
+    span.style.display = "inline";
+  });
+});
