@@ -210,17 +210,17 @@ document.querySelector("input[name='rack']").addEventListener("input", e => {
 document.getElementById("apply-pattern").addEventListener("click", () => {
   const inputs = [...document.querySelectorAll("#pattern-boxes input")];
  
-const pattern = inputs.map(i => {
+ const pattern = inputs.map(i => {
   const val = i.value.trim().toUpperCase();
   return val.length === 1 ? val : ".";
 }).join("");
 
-const regex = new RegExp("^" + pattern); // allow partial match
-
-document.querySelectorAll(".word").forEach(span => {
-  const w = span.textContent.trim().toUpperCase();
-  span.style.display = regex.test(w) ? "inline" : "none";
-});
+  if (!pattern) return;
+  const spans = document.querySelectorAll(".word");
+  spans.forEach(span => {
+    const w = span.textContent.trim().toUpperCase();
+    span.style.display = (new RegExp("^" + pattern)).test(w) ? "inline" : "none";
+  });
 
 // Reset pattern filtering
 document.getElementById("reset-pattern").addEventListener("click", () => {
