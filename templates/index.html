@@ -214,7 +214,7 @@ document.getElementById("apply-pattern").addEventListener("click", () => {
   const spans = document.querySelectorAll(".word");
   spans.forEach(span => {
     const w = span.textContent.trim().toUpperCase();
-    span.style.display = (new RegExp("^" + pattern + "$")).test(w) ? "inline" : "none";
+    span.style.display = (new RegExp("^" + pattern)).test(w) ? "inline" : "none";
   });
 });
 
