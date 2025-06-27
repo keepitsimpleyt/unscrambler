@@ -66,41 +66,44 @@ def get_tab_words(tab: str) -> set[str]:
 # ──────────────────────────────────────────────────────────
 # HTML formatter
 def format_groups(words: list[str], cols: int = 5) -> str:
+    from collections import defaultdict
+
     groups = defaultdict(list)
     for w in words:
         groups[w[0]].append(w)
 
     lines = []
 
-    # 1⃣ longest (6–7-letter) section
+    # 🔥 1. Show 6- and 7-letter words first
     top_words = [w for w in words if len(w) in (6, 7)]
     if top_words:
         lines.append("🔥 Longest Words:\n")
         for i in range(0, len(top_words), cols):
-            row = top_words[i : i + cols]
-            line = " ".join(
-                f'<span class="word" data-w="{w}">{w}</span>' for w in row
-            )
+            row = top_words[i:i+cols]
+            line = " ".join(f'<span class="word" data-w="{w}">{w}</span>' for w in row)
             lines.append(f"     {line}")
         lines.append("")
 
-    # 2⃣ grouped A-Z list
+    # 📦 2. Group everything except 3-letter words
     for idx, letter in enumerate(sorted(groups), 1):
-        rows = [
-            groups[letter][i : i + cols]
-            for i in range(0, len(groups[letter]), cols)
-        ]
+        group = [w for w in groups[letter] if len(w) > 3]
+        if not group:
+            continue
+        rows = [group[i:i+cols] for i in range(0, len(group), cols)]
         for r, row in enumerate(rows):
-            prefix = (
-                f"{idx:>3}. {letter}: "
-                if r == 0
-                else " " * (len(f"{idx:>3}. {letter}: "))
-            )
-            line_body = " ".join(
-                f'<span class="word" data-w="{w}">{w}</span>' for w in row
-            )
+            prefix = f"{idx:>3}. {letter}: " if r == 0 else " " * (len(f"{idx:>3}. {letter}: "))
+            line_body = " ".join(f'<span class="word" data-w="{w}">{w}</span>' for w in row)
             lines.append(prefix + line_body)
         lines.append("")
+
+    # 👇 3. Always show 3-letter words last
+    bottom_3 = [w for w in words if len(w) == 3]
+    if bottom_3:
+        lines.append("🔻 3-letter Words:\n")
+        for i in range(0, len(bottom_3), cols):
+            row = bottom_3[i:i+cols]
+            line = " ".join(f'<span class="word" data-w="{w}">{w}</span>' for w in row)
+            lines.append(f"     {line}")
 
     return "\n".join(lines)
 
